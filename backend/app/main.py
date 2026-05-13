@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine
-import app.models  # registra todos los modelos
+from app.database import engine, Base
+import app.models
 
-# Crea todas las tablas en la BD al iniciar (solo si no existen)
-from app.database import Base
 Base.metadata.create_all(bind=engine)
+
+from app.routers import ventas, productos
 
 app = FastAPI(
     title="Sistema de Gestión Comercial",
@@ -13,18 +13,20 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS: permite que React (en cualquier puerto) consuma la API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # en producción cambia esto por tu dominio real
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.include_router(ventas.router)
+app.include_router(productos.router)
+
 @app.get("/")
 def root():
-    return {"mensaje": "API de gestión comercial activa", "version": "1.0.0"}
+    return {"mensaje": "API activa", "version": "1.0.0"}
 
 @app.get("/health")
 def health():
