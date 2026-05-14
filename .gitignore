@@ -1,3 +1,22 @@
+# Base de datos local - nunca subir al repo
+*.db
+*.sqlite
+*.sqlite3
+
+# Entorno virtual
+backend/venv/
+venv/
+
+# Variables de entorno
+.env
+*.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
