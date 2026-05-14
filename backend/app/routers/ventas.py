@@ -108,3 +108,10 @@ def ventas_por_dia(dias: int = 30, db: Session = Depends(get_db)):
             .all())
     return [{"dia": str(r.dia), "cantidad": r.cantidad,
              "ingresos": r.ingresos} for r in rows]
+
+@router.get("/{venta_id}", response_model=VentaOut)
+def obtener_venta(venta_id: int, db: Session = Depends(get_db)):
+    venta = db.query(Venta).filter(Venta.id == venta_id).first()
+    if not venta:
+        raise HTTPException(404, "Venta no encontrada")
+    return venta
