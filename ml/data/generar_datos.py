@@ -3,35 +3,51 @@ Generador de datos sintéticos realistas para el sistema de gestión comercial.
 Simula 12 meses de operación de una tienda de abarrotes/miscelánea pequeña.
 """
 import sys
-sys.path.insert(0, '/content/gestion-comercial-pyme/backend')
+import os
+
+# ── Configurar path ──────────────────────────────────────────────────────────
+base = os.path.dirname(os.path.abspath(__file__))
+backend_path = os.path.normpath(os.path.join(base, '..', '..', 'backend'))
+sys.path.insert(0, backend_path)
+
+# ── Forzar ruta absoluta de la BD ────────────────────────────────────────────
+db_path = os.path.join(backend_path, 'gestion_comercial.db')
+os.environ['DATABASE_URL'] = f'sqlite:///{db_path}'
+print(f"Usando BD en: {db_path}")
 
 import random
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from app.database import engine, SessionLocal
+from app.database import engine, SessionLocal, Base
 from app.models.usuario import Usuario
 from app.models.producto import Categoria, Producto
 from app.models.inventario import Inventario, MovimientoInventario
 from app.models.venta import Venta, DetalleVenta
-from passlib.context import CryptContext
+import bcrypt as bcrypt_lib
+
+def hash_password(pwd: str) -> str:
+    return bcrypt_lib.hashpw(pwd.encode('utf-8'), bcrypt_lib.gensalt()).decode('utf-8')
 
 random.seed(42)
 np.random.seed(42)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Crear tablas si no existen
+Base.metadata.create_all(bind=engine)
+print("Tablas verificadas.")
+
 db: Session = SessionLocal()
 
 # ── 1. USUARIOS ──────────────────────────────────────────────────────────────
 def crear_usuarios():
     usuarios = [
         Usuario(nombre="Admin Principal", email="admin@tienda.com",
-                password=pwd_context.hash("admin123"), rol="admin"),
+                password=hash_password("admin123"), rol="admin"),
         Usuario(nombre="Vendedor 1",      email="vendedor1@tienda.com",
-                password=pwd_context.hash("vend123"),  rol="vendedor"),
+                password=hash_password("vend123"),  rol="vendedor"),
         Usuario(nombre="Vendedor 2",      email="vendedor2@tienda.com",
-                password=pwd_context.hash("vend123"),  rol="vendedor"),
+                password=hash_password("vend123"),  rol="vendedor"),
     ]
     db.add_all(usuarios)
     db.commit()
