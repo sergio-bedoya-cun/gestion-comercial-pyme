@@ -4,6 +4,7 @@ import Dashboard  from './pages/Dashboard'
 import Ventas     from './pages/Ventas'
 import Productos  from './pages/Productos'
 import Inventario from './pages/Inventario'
+import Predicciones from './pages/Predicciones'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
             <Route path="/ventas"     element={<Ventas />}     />
             <Route path="/productos"  element={<Productos />}  />
             <Route path="/inventario" element={<Inventario />} />
+            <Route path="/predicciones" element={<Predicciones />} />
           </Routes>
         </main>
       </div>

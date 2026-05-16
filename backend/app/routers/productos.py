@@ -37,16 +37,21 @@ def crear_producto(prod_in: ProductoCreate, db: Session = Depends(get_db)):
     db.refresh(prod)
     return prod
 
-@router.get("/inventario/alertas", response_model=List[InventarioOut])
+@router.get("/inventario/alertas")
 def alertas_stock(db: Session = Depends(get_db)):
-    """Productos con stock por debajo del mínimo"""
     items = (db.query(Inventario)
-             .filter(Inventario.cantidad <= Inventario.stock_minimo)
-             .all())
-    return [InventarioOut(
-        producto_id   = i.producto_id,
-        cantidad      = i.cantidad,
-        stock_minimo  = i.stock_minimo,
-        unidad_medida = i.unidad_medida,
-        alerta        = True
-    ) for i in items]
+               .filter(Inventario.cantidad <= Inventario.stock_minimo)
+               .all())
+    resultado = []
+    for i in items:
+        prod = db.query(Producto).filter(Producto.id == i.producto_id).first()
+        resultado.append({
+            "producto_id":   i.producto_id,
+            "nombre":        prod.nombre if prod else None,
+            "codigo":        prod.codigo if prod else None,
+            "cantidad":      i.cantidad,
+            "stock_minimo":  i.stock_minimo,
+            "unidad_medida": i.unidad_medida,
+            "alerta":        True
+        })
+    return resultado

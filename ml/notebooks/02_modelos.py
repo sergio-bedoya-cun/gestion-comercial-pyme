@@ -133,7 +133,7 @@ feature_cols = [c for c in df_feat.columns
                 if c not in ['ds', 'ingresos', 'dia_semana', 'mes']]
 
 train_feat = df_feat.iloc[:-HORIZONTE].dropna()
-test_feat  = df_feat.iloc[-HORIZONTE:].fillna(method='ffill').fillna(0)
+test_feat  = df_feat.iloc[-HORIZONTE:].ffill().fillna(0)
 
 X_train = train_feat[feature_cols]
 y_train = train_feat['ingresos']

@@ -5,6 +5,7 @@ const links = [
   { to: '/ventas',    icon: '💰', label: 'Ventas'     },
   { to: '/productos', icon: '📦', label: 'Productos'  },
   { to: '/inventario',icon: '🏪', label: 'Inventario' },
+  { to: '/predicciones', icon: '🔮', label: 'Predicciones' },
 ]
 
 export default function Sidebar() {

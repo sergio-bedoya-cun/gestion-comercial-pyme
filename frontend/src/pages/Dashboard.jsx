@@ -112,10 +112,12 @@ export default function Dashboard() {
           <div className="space-y-2">
             {alertas.map(a => (
               <div key={a.producto_id}
-                   className="flex justify-between text-sm text-red-600
-                              bg-white rounded-lg px-4 py-2 border border-red-100">
-                <span>Producto #{a.producto_id}</span>
-                <span>Stock: {a.cantidad} / Mínimo: {a.stock_minimo}</span>
+                  className="flex justify-between text-sm text-red-600 bg-white
+                              rounded-lg px-4 py-2 border border-red-100">
+                <span className="font-medium">
+                  {a.nombre ?? `Producto #${a.producto_id}`}
+                </span>
+                <span>Stock: <strong>{a.cantidad}</strong> / Mínimo: {a.stock_minimo}</span>
               </div>
             ))}
           </div>
