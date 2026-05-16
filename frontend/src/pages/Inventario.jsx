@@ -6,7 +6,7 @@ const fmt = n => new Intl.NumberFormat('es-CO', {
   style: 'currency', currency: 'COP', maximumFractionDigits: 0
 }).format(n)
 
-function ModalAjuste({ item, onGuardado, onCancelar }) {
+function ModalAjuste({ item, nombreProducto, onGuardado, onCancelar }) {
   const [cantidad,  setCantidad]  = useState('')
   const [tipo,      setTipo]      = useState('entrada')
   const [motivo,    setMotivo]    = useState('')
@@ -43,7 +43,7 @@ function ModalAjuste({ item, onGuardado, onCancelar }) {
             Ajuste de inventario
           </h3>
           <p className="text-slate-500 text-sm mt-1">
-            Producto #{item.producto_id} · Stock actual: {item.cantidad} {item.unidad_medida}
+            {nombreProducto} · Stock actual: {item.cantidad} {item.unidad_medida}
           </p>
         </div>
         <div className="p-6 space-y-4">
@@ -345,6 +345,7 @@ export default function Inventario() {
       {itemAjuste && (
         <ModalAjuste
           item={itemAjuste}
+          nombreProducto={nombreProducto(itemAjuste.producto_id)}
           onGuardado={() => { setItemAjuste(null); cargar() }}
           onCancelar={() => setItemAjuste(null)}
         />

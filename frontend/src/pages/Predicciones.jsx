@@ -11,6 +11,9 @@ const fmtNum  = n => new Intl.NumberFormat('es-CO').format(n)
 
 // ── Tarjeta de métrica operacional ───────────────────────────────────────────
 function MetricaCard({ titulo, sin, con, reduccion, unidad = '' }) {
+  const esAumento = reduccion < 0
+  const porcentaje = Math.abs(reduccion)
+
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5">
       <p className="text-sm font-medium text-slate-500 mb-3">{titulo}</p>
@@ -26,17 +29,25 @@ function MetricaCard({ titulo, sin, con, reduccion, unidad = '' }) {
         </div>
         <div>
           <p className="text-xs text-slate-400">Con predicción</p>
-          <p className="text-lg font-bold text-green-600">
+          <p className={`text-lg font-bold ${esAumento ? 'text-amber-500' : 'text-green-600'}`}>
             {fmtNum(con)}{unidad}
           </p>
         </div>
       </div>
       <div className="mt-3 pt-3 border-t border-slate-100">
-        <span className="inline-flex items-center gap-1 bg-green-50
-                         text-green-700 px-2 py-1 rounded-full text-xs
-                         font-semibold">
-          ↓ {reduccion}% de reducción
-        </span>
+        {esAumento ? (
+          <span className="inline-flex items-center gap-1 bg-amber-50
+                           text-amber-700 px-2 py-1 rounded-full text-xs
+                           font-semibold">
+            ↑ {porcentaje}% de aumento
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 bg-green-50
+                           text-green-700 px-2 py-1 rounded-full text-xs
+                           font-semibold">
+            ↓ {porcentaje}% de reducción
+          </span>
+        )}
       </div>
     </div>
   )
@@ -52,10 +63,17 @@ export default function Predicciones() {
 
   useEffect(() => {
     api.get('/predicciones/comparacion-completa')
-      .then(r => setComparacion(r.data))
-      .catch(() => setError(
-        'Ejecuta los notebooks 02 y 03 para ver los resultados'))
-      .finally(() => setLoading(false))
+      .then(r => {
+        if (r.data.disponible) {
+            setComparacion(r.data)
+        } else {
+            setError(r.data.mensaje)
+        }
+      })
+        .catch(() => setError(
+          'No se pudo conectar con el servidor. Verifica que el backend esté corriendo.'
+        ))
+        .finally(() => setLoading(false))
   }, [])
 
   const generarForecast = async () => {

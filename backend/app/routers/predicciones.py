@@ -78,43 +78,53 @@ def comparar_modelos(db: Session = Depends(get_db)):
 
 @router.get("/metricas-operacionales")
 def metricas_operacionales():
-    """Lee las métricas operacionales simuladas del JSON generado por el notebook"""
-    import json
-    json_path = os.path.join(
-        os.path.dirname(__file__), '..', '..', '..',
-        'ml', 'data', 'metricas_operacionales.json'
-    )
-    json_path = os.path.normpath(json_path)
+    json_path = os.path.normpath(os.path.join(
+        os.path.dirname(__file__),
+        '..', '..', '..', 'ml', 'data', 'metricas_operacionales.json'
+    ))
     if not os.path.exists(json_path):
-        raise HTTPException(404,
-            "Métricas no encontradas. Ejecuta ml/notebooks/03_metricas_operacionales.py")
+        return {
+            "disponible": False,
+            "mensaje": "Las métricas operacionales aún no han sido generadas. "
+                       "Ejecuta ml/notebooks/03_metricas_operacionales.py para generarlas.",
+            "datos": None
+        }
     with open(json_path) as f:
-        return json.load(f)
+        datos = json.load(f)
+    return {"disponible": True, "mensaje": "OK", "datos": datos}
+
 
 @router.get("/comparacion-completa")
 def comparacion_completa():
-    import json
-    # Ruta absoluta desde la ubicación de este archivo
-    base_ml = os.path.normpath(
-        os.path.join(os.path.dirname(__file__),
-                     '..', '..', '..', 'ml', 'data')
-    )
+    base_ml = os.path.normpath(os.path.join(
+        os.path.dirname(__file__),
+        '..', '..', '..', 'ml', 'data'
+    ))
     csv_path  = os.path.join(base_ml, 'resultados_modelos.csv')
     json_path = os.path.join(base_ml, 'metricas_operacionales.json')
 
-    print(f"Buscando CSV en:  {csv_path}")
-    print(f"Buscando JSON en: {json_path}")
-
+    faltantes = []
     if not os.path.exists(csv_path):
-        raise HTTPException(404, f"No encontrado: {csv_path}")
+        faltantes.append("resultados_modelos.csv (ejecuta 02_modelos.py)")
     if not os.path.exists(json_path):
-        raise HTTPException(404, f"No encontrado: {json_path}")
+        faltantes.append("metricas_operacionales.json (ejecuta 03_metricas_operacionales.py)")
+
+    if faltantes:
+        return {
+            "disponible":         False,
+            "mensaje":            "Faltan archivos generados por los notebooks: "
+                                  + ", ".join(faltantes),
+            "metricas_ml":            [],
+            "metricas_operacionales": {}
+        }
 
     df = pd.read_csv(csv_path, index_col=0)
     with open(json_path) as f:
         operacionales = json.load(f)
 
     return {
+        "disponible":             True,
+        "mensaje":                "OK",
         "metricas_ml":            df.reset_index().to_dict(orient='records'),
         "metricas_operacionales": operacionales
     }
