@@ -5,6 +5,7 @@ import Ventas     from './pages/Ventas'
 import Productos  from './pages/Productos'
 import Inventario from './pages/Inventario'
 import Predicciones from './pages/Predicciones'
+import Reportes from './pages/Reportes'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/productos"  element={<Productos />}  />
             <Route path="/inventario" element={<Inventario />} />
             <Route path="/predicciones" element={<Predicciones />} />
+            <Route path="/reportes" element={<Reportes />} />
           </Routes>
         </main>
       </div>

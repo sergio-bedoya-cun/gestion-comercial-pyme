@@ -5,7 +5,7 @@ import app.models
 
 Base.metadata.create_all(bind=engine)
 
-from app.routers import ventas, productos, inventario, predicciones
+from app.routers import ventas, productos, inventario, predicciones, reportes
 
 app = FastAPI(
     title="Sistema de Gestión Comercial",
@@ -25,6 +25,7 @@ app.include_router(ventas.router)
 app.include_router(productos.router)
 app.include_router(inventario.router)
 app.include_router(predicciones.router)
+app.include_router(reportes.router)
 
 @app.get("/")
 def root():
