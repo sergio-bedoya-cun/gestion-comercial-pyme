@@ -6,6 +6,98 @@ const fmt = n => new Intl.NumberFormat('es-CO', {
   style: 'currency', currency: 'COP', maximumFractionDigits: 0
 }).format(n)
 
+function ModalHistorial({ item, nombreProducto, onCerrar }) {
+  const [movimientos, setMovimientos] = useState([])
+  const [loading,     setLoading]     = useState(true)
+
+  useEffect(() => {
+    api.get(`/inventario/${item.producto_id}/movimientos?limite=20`)
+      .then(r => setMovimientos(r.data))
+      .finally(() => setLoading(false))
+  }, [item.producto_id])
+
+  const tipoColor = {
+    entrada: 'bg-green-100 text-green-700',
+    salida:  'bg-red-100   text-red-600',
+    ajuste:  'bg-blue-100  text-blue-700'
+  }
+
+  const tipoIcono = { entrada: '↑', salida: '↓', ajuste: '⇄' }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center
+                    justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg
+                      max-h-[80vh] flex flex-col">
+        <div className="p-6 border-b border-slate-100 flex justify-between
+                        items-start">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">
+              Historial de movimientos
+            </h3>
+            <p className="text-slate-500 text-sm mt-0.5">
+              {nombreProducto} · Stock actual: {item.cantidad} {item.unidad_medida}
+            </p>
+          </div>
+          <button onClick={onCerrar}
+                  className="text-slate-400 hover:text-slate-600 text-xl">
+            ✕
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-6">
+          {loading ? (
+            <p className="text-center text-slate-400 py-4">Cargando...</p>
+          ) : movimientos.length === 0 ? (
+            <p className="text-center text-slate-400 py-8">
+              No hay movimientos registrados
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {movimientos.map(m => (
+                <div key={m.id}
+                     className="flex items-center gap-3 p-3 rounded-lg
+                                border border-slate-100 hover:bg-slate-50">
+                  <span className={`w-8 h-8 rounded-full flex items-center
+                                   justify-center text-sm font-bold
+                                   ${tipoColor[m.tipo]}`}>
+                    {tipoIcono[m.tipo]}
+                  </span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-medium px-2 py-0.5
+                                       rounded-full capitalize
+                                       ${tipoColor[m.tipo]}`}>
+                        {m.tipo}
+                      </span>
+                      <span className="font-semibold text-slate-800">
+                        {m.tipo === 'ajuste' ? `→ ${m.cantidad}` :
+                         m.tipo === 'entrada' ? `+${m.cantidad}` :
+                         `-${m.cantidad}`} uds
+                      </span>
+                    </div>
+                    {m.motivo && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {m.motivo}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-400">
+                    {new Date(m.fecha).toLocaleString('es-CO', {
+                      day: '2-digit', month: '2-digit',
+                      hour: '2-digit', minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ModalAjuste({ item, nombreProducto, onGuardado, onCancelar }) {
   const [cantidad,  setCantidad]  = useState('')
   const [tipo,      setTipo]      = useState('entrada')
@@ -125,23 +217,21 @@ function ModalAjuste({ item, nombreProducto, onGuardado, onCancelar }) {
 
 export default function Inventario() {
   const [inventario, setInventario] = useState([])
-  const [productos,  setProductos]  = useState([])
   const [alertas,    setAlertas]    = useState([])
   const [busqueda,   setBusqueda]   = useState('')
   const [filtro,     setFiltro]     = useState('todos')
   const [loading,    setLoading]    = useState(true)
   const [itemAjuste, setItemAjuste] = useState(null)
+  const [itemHistorial, setItemHistorial] = useState(null)
 
   const cargar = async () => {
     setLoading(true)
     try {
-      const [inv, prods, alts] = await Promise.all([
+      const [inv, alts] = await Promise.all([
         api.get('/inventario/'),
-        getProductos(),
         getAlertasStock()
       ])
       setInventario(inv.data)
-      setProductos(prods.data)
       setAlertas(alts.data)
     } finally {
       setLoading(false)
@@ -150,19 +240,14 @@ export default function Inventario() {
 
   useEffect(() => { cargar() }, [])
 
-  const nombreProducto = id => {
-    const p = productos.find(p => p.id === id)
-    return p?.nombre ?? `Producto #${id}`
-  }
-
-  const codigoProducto = id => {
-    const p = productos.find(p => p.id === id)
-    return p?.codigo ?? '—'
-  }
+  const nombreProducto = item => item.nombre ?? `Producto #${item.producto_id}`
+  const codigoProducto = item => item.codigo ?? '—'
 
   const filtrados = inventario
     .filter(i => {
-      const nombre = nombreProducto(i.producto_id).toLowerCase()
+      // Ocultar productos desactivados
+      if (!i.activo) return false
+      const nombre = nombreProducto(i).toLowerCase()
       const matchBusqueda = nombre.includes(busqueda.toLowerCase())
       const esAlerta = i.cantidad <= i.stock_minimo
       if (filtro === 'alertas') return matchBusqueda && esAlerta
@@ -287,10 +372,10 @@ export default function Inventario() {
                   <tr key={i.producto_id}
                       className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 font-mono text-slate-500 text-xs">
-                      {codigoProducto(i.producto_id)}
+                      {codigoProducto(i)}
                     </td>
                     <td className="px-4 py-3 font-medium text-slate-800">
-                      {nombreProducto(i.producto_id)}
+                      {nombreProducto(i)}
                     </td>
                     <td className="px-4 py-3 text-center font-semibold
                                    text-slate-800">
@@ -322,12 +407,20 @@ export default function Inventario() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => setItemAjuste(i)}
-                        className="px-3 py-1 text-xs font-medium text-blue-600
-                                   hover:bg-blue-50 rounded-lg border
-                                   border-blue-200 transition-colors"
-                      >Ajustar</button>
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => setItemAjuste(i)}
+                          className="px-3 py-1 text-xs font-medium text-blue-600
+                                    hover:bg-blue-50 rounded-lg border border-blue-200
+                                    transition-colors"
+                        >Ajustar</button>
+                        <button
+                          onClick={() => setItemHistorial(i)}
+                          className="px-3 py-1 text-xs font-medium text-slate-600
+                                    hover:bg-slate-50 rounded-lg border border-slate-200
+                                    transition-colors"
+                        >Historial</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -345,9 +438,17 @@ export default function Inventario() {
       {itemAjuste && (
         <ModalAjuste
           item={itemAjuste}
-          nombreProducto={nombreProducto(itemAjuste.producto_id)}
+          nombreProducto={nombreProducto(itemAjuste)}
           onGuardado={() => { setItemAjuste(null); cargar() }}
           onCancelar={() => setItemAjuste(null)}
+        />
+      )}
+
+      {itemHistorial && (
+        <ModalHistorial
+          item={itemHistorial}
+          nombreProducto={nombreProducto(itemHistorial)}
+          onCerrar={() => setItemHistorial(null)}
         />
       )}
     </div>

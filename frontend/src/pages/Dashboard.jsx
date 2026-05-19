@@ -69,19 +69,30 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard titulo="Total Ventas"
+        <KPICard
+          titulo="Total Ventas"
           valor={resumen?.total_ventas?.toLocaleString('es-CO')}
-          subtitulo="Últimos 12 meses" color="blue" icono="🧾" />
-        <KPICard titulo="Ingresos Totales"
+          subtitulo="Últimos 365 días"
+          color="blue" icono="🧾"
+        />
+        <KPICard
+          titulo="Ingresos Totales"
           valor={fmt(resumen?.ingresos_total)}
-          subtitulo="Últimos 12 meses" color="green" icono="💰" />
-        <KPICard titulo="Ticket Promedio"
+          subtitulo="Últimos 365 días"
+          color="green" icono="💰"
+        />
+        <KPICard
+          titulo="Ticket Promedio"
           valor={fmt(resumen?.ticket_promedio)}
-          subtitulo="Por transacción" color="amber" icono="📈" />
-        <KPICard titulo="Alertas de Stock"
+          subtitulo="Por transacción"
+          color="amber" icono="📈"
+        />
+        <KPICard
+          titulo="Alertas de Stock"
           valor={alertas.length}
           subtitulo="Productos bajo mínimo"
-          color={alertas.length > 0 ? 'red' : 'green'} icono="⚠️" />
+          color={alertas.length > 0 ? 'red' : 'green'} icono="⚠️"
+        />
       </div>
 
       {/* Gráfica de ingresos */}

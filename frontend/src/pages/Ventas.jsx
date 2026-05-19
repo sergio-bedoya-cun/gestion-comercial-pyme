@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getVentas, getResumenVentas, crearVenta } from '../services/ventas'
 import { getProductos } from '../services/productos'
+import api from '../services/api'
 
 const fmt = n => new Intl.NumberFormat('es-CO', {
   style: 'currency', currency: 'COP', maximumFractionDigits: 0
@@ -11,14 +12,109 @@ const fmtFecha = f => new Date(f).toLocaleString('es-CO', {
   hour: '2-digit', minute: '2-digit'
 })
 
+// ── Modal detalle de venta ────────────────────────────────────────────────────
+function ModalDetalleVenta({ ventaId, onCerrar }) {
+  const [detalle, setDetalle] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api.get(`/ventas/${ventaId}/detalle`)
+      .then(r => setDetalle(r.data))
+      .finally(() => setLoading(false))
+  }, [ventaId])
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center
+                    justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+        <div className="p-6 border-b border-slate-100 flex justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">
+              Detalle de venta #{ventaId}
+            </h3>
+            {detalle && (
+              <p className="text-slate-500 text-sm mt-0.5">
+                {new Date(detalle.fecha).toLocaleString('es-CO')} ·{' '}
+                {detalle.cliente_nombre || 'Cliente anónimo'} ·{' '}
+                <span className="capitalize">{detalle.metodo_pago}</span>
+              </p>
+            )}
+          </div>
+          <button onClick={onCerrar}
+                  className="text-slate-400 hover:text-slate-600 text-xl">
+            ✕
+          </button>
+        </div>
+
+        <div className="p-6">
+          {loading ? (
+            <p className="text-center text-slate-400 py-4">Cargando...</p>
+          ) : (
+            <>
+              <table className="w-full text-sm">
+                <thead className="text-slate-500 uppercase text-xs border-b
+                                  border-slate-100">
+                  <tr>
+                    <th className="pb-2 text-left">Producto</th>
+                    <th className="pb-2 text-right">Cant.</th>
+                    <th className="pb-2 text-right">P. Unit.</th>
+                    <th className="pb-2 text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {detalle.detalles.map((d, i) => (
+                    <tr key={i}>
+                      <td className="py-2.5">
+                        <p className="font-medium text-slate-800">
+                          {d.nombre_producto}
+                        </p>
+                        <p className="text-xs text-slate-400 font-mono">
+                          {d.codigo}
+                        </p>
+                      </td>
+                      <td className="py-2.5 text-right text-slate-600">
+                        {d.cantidad}
+                      </td>
+                      <td className="py-2.5 text-right text-slate-600">
+                        {fmt(d.precio_unitario)}
+                      </td>
+                      <td className="py-2.5 text-right font-semibold
+                                     text-slate-800">
+                        {fmt(d.subtotal)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="mt-4 pt-4 border-t border-slate-100 space-y-1">
+                {detalle.descuento > 0 && (
+                  <div className="flex justify-between text-sm text-slate-500">
+                    <span>Descuento</span>
+                    <span>-{fmt(detalle.descuento)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-slate-800">
+                  <span>Total</span>
+                  <span className="text-lg">{fmt(detalle.total)}</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Formulario nueva venta ────────────────────────────────────────────────────
 function FormNuevaVenta({ productos, onGuardado, onCancelar }) {
-  const [items, setItems]       = useState([{ producto_id: '', cantidad: 1 }])
-  const [cliente, setCliente]   = useState('')
-  const [metodo, setMetodo]     = useState('efectivo')
+  const [items,     setItems]     = useState([{ producto_id: '', cantidad: 1 }])
+  const [cliente,   setCliente]   = useState('')
+  const [metodo,    setMetodo]    = useState('efectivo')
   const [descuento, setDescuento] = useState(0)
   const [guardando, setGuardando] = useState(false)
-  const [error, setError]       = useState('')
+  const [error,     setError]     = useState('')
 
   const agregarItem = () =>
     setItems([...items, { producto_id: '', cantidad: 1 }])
@@ -32,12 +128,11 @@ function FormNuevaVenta({ productos, onGuardado, onCancelar }) {
   const eliminarItem = (i) =>
     setItems(items.filter((_, idx) => idx !== i))
 
-  const calcularTotal = () => {
-    return items.reduce((acc, item) => {
+  const calcularTotal = () =>
+    items.reduce((acc, item) => {
       const prod = productos.find(p => p.id === parseInt(item.producto_id))
       return acc + (prod ? prod.precio_venta * item.cantidad : 0)
     }, 0) - descuento
-  }
 
   const handleSubmit = async () => {
     const itemsValidos = items.filter(i => i.producto_id && i.cantidad > 0)
@@ -80,7 +175,6 @@ function FormNuevaVenta({ productos, onGuardado, onCancelar }) {
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Cliente y método de pago */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-slate-600">
@@ -113,7 +207,6 @@ function FormNuevaVenta({ productos, onGuardado, onCancelar }) {
             </div>
           </div>
 
-          {/* Productos */}
           <div>
             <label className="text-sm font-medium text-slate-600">
               Productos
@@ -152,14 +245,12 @@ function FormNuevaVenta({ productos, onGuardado, onCancelar }) {
             </div>
             <button
               onClick={agregarItem}
-              className="mt-2 text-sm text-blue-600 hover:text-blue-800
-                         font-medium"
+              className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
             >
               + Agregar producto
             </button>
           </div>
 
-          {/* Descuento y total */}
           <div className="flex items-center justify-between pt-2
                           border-t border-slate-100">
             <div className="flex items-center gap-2">
@@ -215,12 +306,13 @@ function FormNuevaVenta({ productos, onGuardado, onCancelar }) {
 
 // ── Página principal Ventas ───────────────────────────────────────────────────
 export default function Ventas() {
-  const [ventas,     setVentas]     = useState([])
-  const [productos,  setProductos]  = useState([])
-  const [resumen,    setResumen]    = useState(null)
-  const [loading,    setLoading]    = useState(true)
-  const [modalAbierto, setModal]    = useState(false)
-  const [paginaActual, setPagina]   = useState(0)
+  const [ventas,       setVentas]       = useState([])
+  const [productos,    setProductos]    = useState([])
+  const [resumen,      setResumen]      = useState(null)
+  const [loading,      setLoading]      = useState(true)
+  const [modalAbierto, setModal]        = useState(false)
+  const [paginaActual, setPagina]       = useState(0)
+  const [ventaDetalle, setVentaDetalle] = useState(null)
 
   const cargarDatos = async () => {
     setLoading(true)
@@ -252,7 +344,9 @@ export default function Ventas() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Ventas</h2>
-          <p className="text-slate-500 mt-1">Historial y registro de transacciones</p>
+          <p className="text-slate-500 mt-1">
+            Historial y registro de transacciones
+          </p>
         </div>
         <button
           onClick={() => setModal(true)}
@@ -289,10 +383,12 @@ export default function Ventas() {
 
       {/* Tabla de ventas */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-700">
-            Últimas ventas
-          </h3>
+        <div className="p-4 border-b border-slate-100 flex items-center
+                        justify-between">
+          <h3 className="font-semibold text-slate-700">Últimas ventas</h3>
+          <p className="text-xs text-slate-400">
+            Haz clic en una fila para ver el detalle
+          </p>
         </div>
         {loading ? (
           <div className="p-8 text-center text-slate-400">Cargando...</div>
@@ -311,8 +407,11 @@ export default function Ventas() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {ventas.map(v => (
-                  <tr key={v.id}
-                      className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={v.id}
+                    onClick={() => setVentaDetalle(v.id)}
+                    className="hover:bg-blue-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-4 py-3 text-slate-400 font-mono">
                       #{v.id}
                     </td>
@@ -325,8 +424,8 @@ export default function Ventas() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium
-                                       ${metodoColor[v.metodo_pago]}`}>
+                      <span className={`px-2 py-1 rounded-full text-xs
+                                       font-medium ${metodoColor[v.metodo_pago]}`}>
                         {v.metodo_pago}
                       </span>
                     </td>
@@ -376,6 +475,14 @@ export default function Ventas() {
           productos={productos}
           onGuardado={() => { setModal(false); cargarDatos() }}
           onCancelar={() => setModal(false)}
+        />
+      )}
+
+      {/* Modal detalle de venta */}
+      {ventaDetalle && (
+        <ModalDetalleVenta
+          ventaId={ventaDetalle}
+          onCerrar={() => setVentaDetalle(null)}
         />
       )}
     </div>

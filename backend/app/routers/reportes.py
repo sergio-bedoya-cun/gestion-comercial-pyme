@@ -45,8 +45,7 @@ def productos_mas_vendidos(
 
 @router.get("/ventas-por-periodo")
 def ventas_por_periodo(
-    periodo:     str            = Query("diario",
-                                        description="diario | semanal | mensual"),
+    periodo:     str            = Query("diario"),
     fecha_desde: Optional[date] = Query(None),
     fecha_hasta: Optional[date] = Query(None),
     db:          Session        = Depends(get_db)
@@ -61,6 +60,8 @@ def ventas_por_periodo(
         grupo = func.date(Venta.fecha)
         label = "dia"
 
+    hoy = datetime.now()
+
     q = (db.query(
              grupo.label(label),
              func.count(Venta.id).label("cantidad_ventas"),
@@ -69,13 +70,25 @@ def ventas_por_periodo(
          .filter(Venta.estado == "completada"))
 
     if fecha_desde:
-        q = q.filter(Venta.fecha >= datetime.combine(fecha_desde, datetime.min.time()))
+        q = q.filter(Venta.fecha >= datetime.combine(fecha_desde,
+                                                      datetime.min.time()))
     if fecha_hasta:
-        q = q.filter(Venta.fecha <= datetime.combine(fecha_hasta, datetime.max.time()))
+        q = q.filter(Venta.fecha <= datetime.combine(fecha_hasta,
+                                                      datetime.max.time()))
+
+    # Excluir período en curso (mes/semana incompleto)
+    if periodo == "mensual":
+        mes_actual = hoy.strftime('%Y-%m')
+        q = q.filter(func.strftime('%Y-%m', Venta.fecha) != mes_actual)
+    elif periodo == "semanal":
+        semana_actual = hoy.strftime('%Y-W%W')
+        q = q.filter(func.strftime('%Y-W%W', Venta.fecha) != semana_actual)
+    elif periodo == "diario":
+        q = q.filter(func.date(Venta.fecha) != func.date(hoy))
 
     rows = q.group_by(grupo).order_by(grupo).all()
 
-    return [{"periodo":        str(r[0]),
+    return [{"periodo":         str(r[0]),
              "cantidad_ventas": r.cantidad_ventas,
              "ingresos":        round(r.ingresos, 0),
              "ticket_promedio": round(r.ticket_promedio, 0)} for r in rows]

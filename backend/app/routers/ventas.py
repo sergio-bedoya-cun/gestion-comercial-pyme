@@ -8,6 +8,7 @@ from app.models.venta import Venta, DetalleVenta
 from app.models.producto import Producto
 from app.models.inventario import Inventario
 from app.schemas.venta import VentaCreate, VentaOut, VentaResumen
+from datetime import timedelta
 
 router = APIRouter(prefix="/ventas", tags=["Ventas"])
 
@@ -19,7 +20,10 @@ def listar_ventas(
     fecha_hasta: Optional[date] = Query(None),
     db:          Session        = Depends(get_db)
 ):
-    q = db.query(Venta).filter(Venta.estado == "completada")
+    q = (db.query(Venta)
+           .filter(Venta.estado == "completada")
+           .options(__import__('sqlalchemy.orm', fromlist=['joinedload'])
+                    .joinedload(Venta.detalles)))
     if fecha_desde:
         q = q.filter(Venta.fecha >= datetime.combine(fecha_desde, datetime.min.time()))
     if fecha_hasta:
@@ -28,18 +32,21 @@ def listar_ventas(
 
 @router.get("/resumen", response_model=VentaResumen)
 def resumen_ventas(
+    dias:        int            = 365,
     fecha_desde: Optional[date] = Query(None),
     fecha_hasta: Optional[date] = Query(None),
     db:          Session        = Depends(get_db)
 ):
-    q = db.query(Venta).filter(Venta.estado == "completada")
-    if fecha_desde:
-        q = q.filter(Venta.fecha >= datetime.combine(fecha_desde, datetime.min.time()))
-    if fecha_hasta:
-        q = q.filter(Venta.fecha <= datetime.combine(fecha_hasta, datetime.max.time()))
+    desde = datetime.now() - timedelta(days=dias) if not fecha_desde else \
+            datetime.combine(fecha_desde, datetime.min.time())
 
-    total_ventas   = q.count()
-    ingresos_total = q.with_entities(func.sum(Venta.total)).scalar() or 0
+    q = db.query(Venta).filter(Venta.estado == "completada",
+                                Venta.fecha >= desde)
+    if fecha_hasta:
+        q = q.filter(Venta.fecha <= datetime.combine(fecha_hasta,
+                                                      datetime.max.time()))
+    total_ventas    = q.count()
+    ingresos_total  = q.with_entities(func.sum(Venta.total)).scalar() or 0
     ticket_promedio = ingresos_total / total_ventas if total_ventas > 0 else 0
 
     return VentaResumen(
@@ -115,3 +122,30 @@ def obtener_venta(venta_id: int, db: Session = Depends(get_db)):
     if not venta:
         raise HTTPException(404, "Venta no encontrada")
     return venta
+
+@router.get("/{venta_id}/detalle")
+def detalle_venta(venta_id: int, db: Session = Depends(get_db)):
+    from app.models.producto import Producto
+    venta = db.query(Venta).filter(Venta.id == venta_id).first()
+    if not venta:
+        raise HTTPException(404, "Venta no encontrada")
+    detalles = []
+    for d in venta.detalles:
+        prod = db.query(Producto).filter(Producto.id == d.producto_id).first()
+        detalles.append({
+            "producto_id":      d.producto_id,
+            "nombre_producto":  prod.nombre if prod else f"Producto #{d.producto_id}",
+            "codigo":           prod.codigo if prod else "—",
+            "cantidad":         d.cantidad,
+            "precio_unitario":  d.precio_unitario,
+            "subtotal":         d.subtotal
+        })
+    return {
+        "id":            venta.id,
+        "fecha":         venta.fecha,
+        "cliente_nombre": venta.cliente_nombre,
+        "metodo_pago":   venta.metodo_pago,
+        "descuento":     venta.descuento,
+        "total":         venta.total,
+        "detalles":      detalles
+    }

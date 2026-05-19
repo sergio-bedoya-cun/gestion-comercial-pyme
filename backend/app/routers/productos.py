@@ -5,6 +5,10 @@ from app.database import get_db
 from app.models.producto import Producto, Categoria
 from app.models.inventario import Inventario
 from app.schemas.producto import ProductoCreate, ProductoOut, InventarioOut
+from fastapi import APIRouter, Depends, HTTPException
+from app.schemas.producto import ProductoCreate
+from pydantic import BaseModel
+from typing import Optional
 
 router = APIRouter(prefix="/productos", tags=["Productos"])
 
@@ -55,3 +59,35 @@ def alertas_stock(db: Session = Depends(get_db)):
             "alerta":        True
         })
     return resultado
+
+class ProductoUpdate(BaseModel):
+    nombre:        Optional[str]   = None
+    precio_compra: Optional[float] = None
+    precio_venta:  Optional[float] = None
+    categoria_id:  Optional[int]   = None
+    descripcion:   Optional[str]   = None
+    activo:        Optional[bool]  = None
+
+@router.put("/{producto_id}", response_model=ProductoOut)
+def actualizar_producto(
+    producto_id: int,
+    datos: ProductoUpdate,
+    db:    Session = Depends(get_db)
+):
+    prod = db.query(Producto).filter(Producto.id == producto_id).first()
+    if not prod:
+        raise HTTPException(404, "Producto no encontrado")
+    for campo, valor in datos.model_dump(exclude_none=True).items():
+        setattr(prod, campo, valor)
+    db.commit()
+    db.refresh(prod)
+    return prod
+
+@router.delete("/{producto_id}")
+def eliminar_producto(producto_id: int, db: Session = Depends(get_db)):
+    prod = db.query(Producto).filter(Producto.id == producto_id).first()
+    if not prod:
+        raise HTTPException(404, "Producto no encontrado")
+    prod.activo = False   # soft delete — no borra el historial de ventas
+    db.commit()
+    return {"mensaje": f"Producto '{prod.nombre}' desactivado correctamente"}

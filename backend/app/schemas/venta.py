@@ -8,8 +8,9 @@ class DetalleVentaBase(BaseModel):
     precio_unitario: float
 
 class DetalleVentaOut(DetalleVentaBase):
-    id:       int
-    subtotal: float
+    id:              int
+    subtotal:        float
+    nombre_producto: Optional[str] = None
     class Config:
         from_attributes = True
 
