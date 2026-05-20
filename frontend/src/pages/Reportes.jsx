@@ -79,6 +79,7 @@ export default function Reportes() {
   const [periodo,    setPeriodo]    = useState('mensual')
   const [loading,    setLoading]    = useState(true)
   const [exportando, setExportando] = useState(false)
+  const [loadingVentas, setLoadingVentas] = useState(false)
   const [vistaProductos, setVistaProductos] = useState('ingresos')
 
   // Filtro de fechas personalizado
@@ -88,8 +89,12 @@ export default function Reportes() {
   const [filtroHasta, setFiltroHasta] = useState(hoy)
 
   // Refs para capturar los gráficos como imagen en el PDF
+  // Refs para capturar los gráficos como imagen en el PDF
   const refGraficoProductos = useRef(null)
   const refGraficoPeriodo   = useRef(null)
+
+  // Datos de 12 meses exclusivos para la gráfica del PDF
+  const [porPeriodoPDF, setPorPeriodoPDF] = useState([])
 
   // Calcular fechas de los últimos 30 días
   const getFechas30d = () => {
@@ -191,14 +196,15 @@ export default function Reportes() {
         y = (doc.lastAutoTable?.finalY ?? y) + 14
       }
 
-      // ── 3. Ventas por período: gráfica + tabla ────────────────────────────
-      if (porPeriodo.length > 0) {
+      // ── 3. Ventas por período: gráfica 12 meses + tabla ──────────────────
+      const datosPDF = porPeriodoPDF.length > 0 ? porPeriodoPDF : porPeriodo
+      if (datosPDF.length > 0) {
         if (y + 20 > doc.internal.pageSize.height - 20) { doc.addPage(); y = 20 }
         doc.setFontSize(12)
         doc.setFont('helvetica', 'bold')
         const labelPer = periodo === 'diario' ? 'diaria'
                        : periodo === 'semanal' ? 'semanal' : 'mensual'
-        doc.text(`3. Evolucion de ventas (agrupacion ${labelPer})`, 14, y)
+        doc.text('3. Evolucion de ventas — ultimos 12 meses (mensual)', 14, y)
         y += 6
 
         const imgPeriodo = await capturarGrafico(refGraficoPeriodo.current)
@@ -212,7 +218,7 @@ export default function Reportes() {
         autoTable(doc, {
           startY: y,
           head: [['Periodo', 'Cantidad ventas', 'Ingresos (COP)', 'Ticket promedio']],
-          body: porPeriodo.map(r => [
+          body: datosPDF.map(r => [
             r.periodo,
             r.cantidad_ventas.toLocaleString('es-CO'),
             `$${r.ingresos.toLocaleString('es-CO')}`,
@@ -273,31 +279,54 @@ export default function Reportes() {
     }
   }
 
-  const cargarDatos = async (p = periodo, desde = filtroDesde, hasta = filtroHasta) => {
+  // Carga los datos principales: resumen, productos y rotación
+  // No incluye ventas por período para que cambiar el período no recargue todo
+  const cargarDatosPrincipales = async (desde = filtroDesde, hasta = filtroHasta) => {
     setLoading(true)
     try {
-      const [res, mv, pp, rot] = await Promise.all([
+      const [res, mv, rot] = await Promise.all([
         getResumenEjecutivo(),
         getProductosMasVendidos(10, desde, hasta),
-        getVentasPorPeriodo(p, desde, hasta),
         getRotacionInventario()
       ])
       setResumen(res.data)
       setMasVendidos(mv.data.map((d, i) => ({ ...d, fill: COLORES[i % COLORES.length] })))
-      setPorPeriodo(pp.data.map(d => ({
-        ...d,
-        ingresos_k: Math.round(d.ingresos / 1000)
-      })))
       setRotacion(rot.data)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { cargarDatos() }, [])
+  // Carga solo la gráfica de ventas por período
+  // En mensual fuerza 12 meses; en diario/semanal respeta el filtro activo
+  const cargarVentas = async (p = periodo, desde = filtroDesde, hasta = filtroHasta) => {
+    setLoadingVentas(true)
+    try {
+      let desdeEfectivo = desde
+      if (p === 'mensual') {
+        const hace12m = new Date()
+        hace12m.setFullYear(hace12m.getFullYear() - 1)
+        desdeEfectivo = hace12m.toISOString().slice(0, 10)
+      }
+      const pp = await getVentasPorPeriodo(p, desdeEfectivo, hasta)
+      const mapped = pp.data.map(d => ({
+        ...d,
+        ingresos_k: Math.round(d.ingresos / 1000)
+      }))
+      setPorPeriodo(mapped)
+      setPorPeriodoPDF(p === 'mensual' ? mapped : [])
+    } finally {
+      setLoadingVentas(false)
+    }
+  }
 
-  const cambiarPeriodo  = p => { setPeriodo(p); cargarDatos(p) }
-  const aplicarFiltro   = ()  => { cargarDatos(periodo, filtroDesde, filtroHasta) }
+  useEffect(() => {
+    cargarDatosPrincipales()
+    cargarVentas()
+  }, [])
+
+  const cambiarPeriodo = p => { setPeriodo(p); cargarVentas(p) }
+  const aplicarFiltro  = () => { cargarDatosPrincipales(filtroDesde, filtroHasta); cargarVentas(periodo, filtroDesde, filtroHasta) }
 
   const rotacionColor = estado =>
     estado === 'alto'   ? 'bg-green-100 text-green-700' :
@@ -384,11 +413,12 @@ export default function Reportes() {
             Aplicar filtro
           </button>
           <button
-            onClick={() => {
-              setFiltroDesde(hace30d)
-              setFiltroHasta(hoy)
-              cargarDatos(periodo, hace30d, hoy)
-            }}
+          onClick={() => {
+            setFiltroDesde(hace30d)
+            setFiltroHasta(hoy)
+            cargarDatosPrincipales(hace30d, hoy)
+            cargarVentas(periodo, hace30d, hoy)
+          }}
             className="px-4 py-2 text-sm font-medium border border-slate-200
                        text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
           >
@@ -520,7 +550,11 @@ export default function Reportes() {
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-6"
              ref={refGraficoPeriodo}>
-          {porPeriodo.length === 0 ? (
+          {loadingVentas ? (
+            <div className="flex items-center justify-center h-64 text-slate-400">
+              <p className="text-sm">Cargando gráfica...</p>
+            </div>
+          ) : porPeriodo.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
               <p className="text-4xl mb-3">📭</p>
               <p className="text-sm font-medium">Sin ventas en este período</p>
