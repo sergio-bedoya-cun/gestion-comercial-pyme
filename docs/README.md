@@ -27,7 +27,7 @@ vs XGBoost sobre series de tiempo de ventas.
 3. **Inventario** — Control de stock con alertas y ajuste de movimientos
 4. **Productos** — Catálogo con búsqueda y cálculo de margen
 5. **Predicciones** — Comparación de modelos ML y métricas operacionales
-6. **Reportes** — *(próximamente)*
+6. **Reportes** — Dashboard de analítica con exportación PDF y CSV. Incluye resumen ejecutivo, productos más vendidos (últimos 30 días), evolución de ventas por período y rotación de inventario con alertas de stock.
 
 ---
 
