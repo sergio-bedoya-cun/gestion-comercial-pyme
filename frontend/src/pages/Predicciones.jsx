@@ -116,10 +116,13 @@ export default function Predicciones() {
 
   // Datos para gráfica de barras comparativa
   const datosMAE = ml.map(m => ({
-    modelo: m.modelo,
-    MAE:    Math.round(m.MAE),
-    RMSE:   Math.round(m.RMSE),
-    MAPE:   Math.round(m.MAPE * 10) / 10,
+    modelo:        m.modelo,
+    MAE:           Math.round(m.MAE),
+    RMSE:          Math.round(m.RMSE),
+    MAPE:          Math.round(m.MAPE * 10) / 10,
+    MAPE_completo: m.MAPE_completo != null
+                     ? Math.round(m.MAPE_completo * 10) / 10
+                     : null,
   }))
 
   return (
@@ -157,7 +160,8 @@ export default function Predicciones() {
                 <th className="px-5 py-3 text-left">Modelo</th>
                 <th className="px-5 py-3 text-right">MAE (COP)</th>
                 <th className="px-5 py-3 text-right">RMSE (COP)</th>
-                <th className="px-5 py-3 text-right">MAPE %</th>
+                <th className="px-5 py-3 text-right">MAPE filtrado</th>
+                <th className="px-5 py-3 text-right">MAPE completo</th>
                 <th className="px-5 py-3 text-center">Ranking</th>
               </tr>
             </thead>
@@ -179,6 +183,9 @@ export default function Predicciones() {
                   </td>
                   <td className="px-5 py-3 text-right font-mono">
                     {m.MAPE.toFixed(1)}%
+                  </td>
+                  <td className="px-5 py-3 text-right font-mono text-slate-400">
+                    {m.MAPE_completo != null ? m.MAPE_completo.toFixed(1) + '%' : '—'}
                   </td>
                   <td className="px-5 py-3 text-center">
                     {i === 0 && (

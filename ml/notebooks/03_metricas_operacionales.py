@@ -58,11 +58,13 @@ print(f"Período: {demanda['ds'].min().date()} → {demanda['ds'].max().date()}\
 
 # ── 2. Simulación sin predicción (política reactiva) ─────────────────────────
 def simular_sin_prediccion(demanda_prod, stock_inicial, stock_min,
-                            lead_time=3, lote_reorden=50):
+                            lead_time=3,       # días hábiles promedio de reposición con proveedor local
+                            lote_reorden=50):  # reposición semanal típica para productos de alta rotación
     """
     Política reactiva: reordena cuando el stock cae bajo el mínimo.
-    lead_time: días que tarda en llegar el pedido
-    lote_reorden: cantidad que se pide cada vez
+    lead_time=3 días: estándar para pequeño comercio urbano con proveedor en la misma ciudad.
+    lote_reorden=50 unidades: cubre ~1 semana de ventas para productos de alta rotación,
+    balanceando costo de almacenamiento y descuento mínimo de cantidad en distribuidoras locales.
     """
     fechas    = sorted(demanda_prod['ds'].unique())
     stock     = stock_inicial
@@ -104,10 +106,14 @@ def simular_sin_prediccion(demanda_prod, stock_inicial, stock_min,
 
 # ── 3. Simulación con predicción (política proactiva) ────────────────────────
 def simular_con_prediccion(demanda_prod, stock_inicial, stock_min,
-                            lead_time=3, lote_reorden=50, ventana_pred=7):
+                            lead_time=3,       # días hábiles promedio de reposición con proveedor local
+                            lote_reorden=50,   # reposición semanal típica para productos de alta rotación
+                            ventana_pred=7):
     """
     Política proactiva: anticipa la demanda futura usando media móvil
     como proxy del modelo predictivo.
+    Mismos valores de lead_time y lote_reorden que la política reactiva para
+    garantizar comparabilidad directa entre ambas simulaciones.
     """
     fechas    = sorted(demanda_prod['ds'].unique())
     stock     = stock_inicial
@@ -205,6 +211,19 @@ mejora_anticipacion = ((df_res['dias_bajo_min_sin'].sum()
                         / df_res['dias_bajo_min_sin'].sum() * 100) \
                        if df_res['dias_bajo_min_sin'].sum() > 0 else 0
 
+# Leer MAPE de ambas variantes desde el CSV generado por 02_modelos.py
+# para incluirlos en el JSON de métricas (útil para el frontend)
+_csv_path = os.path.join(base, '..', 'data', 'resultados_modelos.csv')
+_mape_por_modelo = {}
+if os.path.exists(_csv_path):
+    _df_ml = pd.read_csv(_csv_path, index_col=0)
+    for _modelo in _df_ml.index:
+        _mape_por_modelo[_modelo] = {
+            'MAPE':          round(float(_df_ml.loc[_modelo, 'MAPE']), 2),
+            'MAPE_completo': round(float(_df_ml.loc[_modelo, 'MAPE_completo']), 2)
+                             if 'MAPE_completo' in _df_ml.columns else None
+        }
+
 metricas_resumen = {
     'total_quiebres_sin_prediccion':    int(total_quiebres_sin),
     'total_quiebres_con_prediccion':    int(total_quiebres_con),
@@ -216,6 +235,7 @@ metricas_resumen = {
     'exceso_inventario_con':            round(exceso_con, 2),
     'reduccion_sobreinventario_pct':    round(reduccion_exceso, 1),
     'mejora_anticipacion_pedidos_pct':  round(mejora_anticipacion, 1),
+    'metricas_ml':                      _mape_por_modelo,  # MAPE filtrado y completo por modelo
 }
 
 print("\n" + "=" * 55)
@@ -235,12 +255,9 @@ print(f"Reducción de sobreinventario:     {reduccion_exceso:>5.1f}%")
 print(f"")
 print(f"Mejora en anticipación de pedidos:{mejora_anticipacion:>5.1f}%")
 
-# ── 6. Guardar JSON para la API ───────────────────────────────────────────────
+# ── 6. Ruta del JSON (se escribe al final, después del análisis económico) ────
 import json
 out_json = os.path.join(base, '..', 'data', 'metricas_operacionales.json')
-with open(out_json, 'w') as f:
-    json.dump(metricas_resumen, f, indent=2)
-print(f"\nMétricas guardadas en: {os.path.normpath(out_json)}")
 
 # ── 7. Visualización ──────────────────────────────────────────────────────────
 fig, axes = plt.subplots(1, 3, figsize=(15, 5))
@@ -283,3 +300,38 @@ plt.tight_layout()
 out_png = os.path.join(base, '..', 'data', 'metricas_operacionales.png')
 plt.savefig(out_png, dpi=150, bbox_inches='tight')
 print(f"Gráfica guardada en:   {os.path.normpath(out_png)}")
+# ── 7. Análisis económico del sobreinventario ─────────────────────────────────
+# Parámetros estimados para tienda de barrio colombiana (en COP)
+precio_compra_promedio = 3_500   # costo promedio por unidad comprada al distribuidor
+precio_venta_promedio  = 5_200   # precio de venta promedio al consumidor final
+
+# Sobreinventario adicional generado por la política con predicción
+# (puede ser ligeramente mayor porque hace pedidos anticipados)
+sobreinventario_adicional = max(exceso_con - exceso_sin, 0)
+costo_sobreinventario     = sobreinventario_adicional * precio_compra_promedio
+
+# Ventas recuperadas: quiebres de stock evitados gracias a la política proactiva
+ventas_recuperadas = max(total_perdidas_sin - total_perdidas_con, 0)
+ingreso_recuperado = ventas_recuperadas * precio_venta_promedio
+
+balance_neto = ingreso_recuperado - costo_sobreinventario
+
+print("\n── Análisis económico ──────────────────────────────────────────")
+print(f"Sobreinventario adicional con predicción: {sobreinventario_adicional:.1f} uds")
+print(f"Costo sobreinventario adicional:  ${costo_sobreinventario:>12,.0f} COP")
+print(f"Ventas recuperadas (quiebres evitados): {ventas_recuperadas:.1f} uds")
+print(f"Ingreso recuperado por quiebres:  ${ingreso_recuperado:>12,.0f} COP")
+print(f"Balance neto (ingreso - costo):   ${balance_neto:>12,.0f} COP")
+if balance_neto > 0:
+    print("→ La predicción es económicamente rentable para el negocio.")
+else:
+    print("→ Revisar parámetros de precio o el horizonte de simulación.")
+
+# Agregar resultados económicos al JSON antes de guardarlo
+metricas_resumen['balance_economico_neto_cop'] = round(balance_neto, 0)
+metricas_resumen['ingreso_recuperado_cop']     = round(ingreso_recuperado, 0)
+metricas_resumen['costo_sobreinventario_cop']  = round(costo_sobreinventario, 0)
+
+with open(out_json, 'w') as f:
+    json.dump(metricas_resumen, f, indent=2)
+print(f"\nMétricas guardadas en: {os.path.normpath(out_json)}")

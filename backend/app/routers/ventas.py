@@ -8,6 +8,7 @@ from app.models.venta import Venta, DetalleVenta
 from app.models.producto import Producto
 from app.models.inventario import Inventario
 from app.schemas.venta import VentaCreate, VentaOut, VentaResumen
+from sqlalchemy.orm import joinedload
 from datetime import timedelta
 
 router = APIRouter(prefix="/ventas", tags=["Ventas"])
@@ -22,8 +23,7 @@ def listar_ventas(
 ):
     q = (db.query(Venta)
            .filter(Venta.estado == "completada")
-           .options(__import__('sqlalchemy.orm', fromlist=['joinedload'])
-                    .joinedload(Venta.detalles)))
+           .options(joinedload(Venta.detalles)))
     if fecha_desde:
         q = q.filter(Venta.fecha >= datetime.combine(fecha_desde, datetime.min.time()))
     if fecha_hasta:
@@ -104,7 +104,7 @@ def crear_venta(venta_in: VentaCreate, db: Session = Depends(get_db)):
 @router.get("/ventas-por-dia")
 def ventas_por_dia(dias: int = 30, db: Session = Depends(get_db)):
     """Retorna ventas agrupadas por día — para gráfica del dashboard"""
-    desde = datetime.now() - __import__('datetime').timedelta(days=dias)
+    desde = datetime.now() - timedelta(days=dias)
     rows = (db.query(
                 func.date(Venta.fecha).label("dia"),
                 func.count(Venta.id).label("cantidad"),

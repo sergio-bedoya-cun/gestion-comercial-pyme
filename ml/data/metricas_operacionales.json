@@ -1,12 +1,29 @@
 {
-  "total_quiebres_sin_prediccion": 332,
-  "total_quiebres_con_prediccion": 10,
-  "reduccion_quiebres_pct": 97.0,
-  "unidades_perdidas_sin_prediccion": 1372.0,
-  "unidades_perdidas_con_prediccion": 30.0,
-  "reduccion_perdidas_pct": 97.8,
-  "exceso_inventario_sin": 4.54,
-  "exceso_inventario_con": 10.47,
-  "reduccion_sobreinventario_pct": -130.8,
-  "mejora_anticipacion_pedidos_pct": -6.1
+  "total_quiebres_sin_prediccion": 337,
+  "total_quiebres_con_prediccion": 13,
+  "reduccion_quiebres_pct": 96.1,
+  "unidades_perdidas_sin_prediccion": 1413.0,
+  "unidades_perdidas_con_prediccion": 50.0,
+  "reduccion_perdidas_pct": 96.5,
+  "exceso_inventario_sin": 4.5,
+  "exceso_inventario_con": 10.5,
+  "reduccion_sobreinventario_pct": -133.6,
+  "mejora_anticipacion_pedidos_pct": -6.1,
+  "metricas_ml": {
+    "Prophet": {
+      "MAPE": 74.44,
+      "MAPE_completo": 341.31
+    },
+    "SARIMA": {
+      "MAPE": 53.08,
+      "MAPE_completo": 265.19
+    },
+    "XGBoost": {
+      "MAPE": 46.08,
+      "MAPE_completo": 357.21
+    }
+  },
+  "balance_economico_neto_cop": 7066580.0,
+  "ingreso_recuperado_cop": 7087600.0,
+  "costo_sobreinventario_cop": 21020.0
 }

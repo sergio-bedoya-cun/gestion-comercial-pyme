@@ -48,12 +48,18 @@ def calcular_metricas(real, pred, nombre):
     pred_cop = pred * ESCALA
     mae  = mean_absolute_error(real_cop, pred_cop)
     rmse = np.sqrt(mean_squared_error(real_cop, pred_cop))
-    # MAPE robusto: evita división por valores pequeños
-    mask = real_cop > real_cop.mean() * 0.1
-    mape = np.mean(np.abs((real_cop[mask] - pred_cop[mask]) /
-                           real_cop[mask])) * 100
-    print(f"{nombre:15s} → MAE: ${mae:>12,.0f}  RMSE: ${rmse:>12,.0f}  MAPE: {mape:.2f}%")
-    return {'modelo': nombre, 'MAE': mae, 'RMSE': rmse, 'MAPE': mape}
+    # MAPE filtrado: excluye días con ventas < 10% del promedio para evitar
+    # divisiones por valores cercanos a cero que inflan artificialmente el error
+    mask           = real_cop > real_cop.mean() * 0.1
+    mape_filtrado  = np.mean(np.abs((real_cop[mask] - pred_cop[mask]) /
+                                     real_cop[mask])) * 100
+    # MAPE completo: incluye todos los días; más honesto, siempre mayor
+    mape_completo  = np.mean(np.abs((real_cop - pred_cop) /
+                                     np.where(real_cop == 0, np.nan, real_cop))) * 100
+    print(f"{nombre:15s} → MAE: ${mae:>12,.0f}  RMSE: ${rmse:>12,.0f}  "
+          f"MAPE (filtrado): {mape_filtrado:.2f}%  MAPE (completo): {mape_completo:.2f}%")
+    return {'modelo': nombre, 'MAE': mae, 'RMSE': rmse,
+            'MAPE': mape_filtrado, 'MAPE_completo': mape_completo}
 
 resultados = []
 predicciones = {}
@@ -219,15 +225,29 @@ for bar, val in zip(bars, df_res['RMSE']):
              f'${val:,.0f}', ha='center', va='bottom', fontsize=9)
 ax3.grid(axis='y', alpha=0.3)
 
-# Gráfica 4 — barras MAPE
+# Gráfica 4 — barras MAPE filtrado vs completo
 ax4 = fig.add_subplot(gs[2, 0])
-bars = ax4.bar(modelos, df_res['MAPE'],
-               color=[colores[m] for m in modelos], edgecolor='white')
-ax4.set_title('MAPE % (menor es mejor)')
+x      = np.arange(len(modelos))
+ancho  = 0.35
+bars1  = ax4.bar(x - ancho/2, df_res['MAPE'],
+                 ancho, label='MAPE filtrado',
+                 color=[colores[m] for m in modelos],
+                 edgecolor='white', alpha=0.9)
+bars2  = ax4.bar(x + ancho/2, df_res['MAPE_completo'],
+                 ancho, label='MAPE completo',
+                 color=[colores[m] for m in modelos],
+                 edgecolor='white', alpha=0.45, hatch='//')
+ax4.set_title('MAPE % — filtrado vs completo\n(filtrado excluye días de baja venta)')
 ax4.set_ylabel('Porcentaje %')
-for bar, val in zip(bars, df_res['MAPE']):
+ax4.set_xticks(x)
+ax4.set_xticklabels(modelos)
+ax4.legend(fontsize=8)
+for bar, val in zip(bars1, df_res['MAPE']):
     ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
-             f'{val:.2f}%', ha='center', va='bottom', fontsize=9)
+             f'{val:.1f}%', ha='center', va='bottom', fontsize=8)
+for bar, val in zip(bars2, df_res['MAPE_completo']):
+    ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+             f'{val:.1f}%', ha='center', va='bottom', fontsize=8)
 ax4.grid(axis='y', alpha=0.3)
 
 # Gráfica 5 — errores absolutos por día
