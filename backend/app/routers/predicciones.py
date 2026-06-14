@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
@@ -128,3 +129,16 @@ def comparacion_completa():
         "metricas_ml":            df.reset_index().to_dict(orient='records'),
         "metricas_operacionales": operacionales
     }
+
+@router.get("/imagen-comparacion")
+def imagen_comparacion():
+    """Sirve la imagen comparativa generada por 02_modelos.py"""
+    img_path = os.path.normpath(os.path.join(
+        os.path.dirname(__file__),
+        '..', '..', '..', 'ml', 'data', 'comparacion_modelos.png'
+    ))
+    if not os.path.exists(img_path):
+        raise HTTPException(404,
+            "Imagen no encontrada. Ejecuta ml/notebooks/02_modelos.py primero")
+    return FileResponse(img_path, media_type="image/png",
+                        filename="comparacion_modelos.png")

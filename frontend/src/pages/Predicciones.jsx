@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid,
          Tooltip, ResponsiveContainer, Legend,
-         BarChart, Bar } from 'recharts'
+         BarChart, Bar, Cell } from 'recharts'
 import api from '../services/api'
 
 const fmt     = n => new Intl.NumberFormat('es-CO', {
@@ -128,14 +128,23 @@ export default function Predicciones() {
   return (
     <div className="space-y-8">
       {/* Encabezado */}
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800">
-          Módulo Predictivo
-        </h2>
-        <p className="text-slate-500 mt-1">
-          Comparación Prophet vs SARIMA vs XGBoost —
-          análisis de impacto operacional
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">
+            Módulo Predictivo
+          </h2>
+          <p className="text-slate-500 mt-1">
+            Comparación Prophet vs SARIMA vs XGBoost —
+            análisis de impacto operacional
+          </p>
+        </div>
+        <a
+          href={api.defaults.baseURL + '/predicciones/imagen-comparacion'}
+          download="comparacion_modelos.png"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-600"
+        >
+          ⬇ Gráfica comparativa
+        </a>
       </div>
 
       {error && (
@@ -216,10 +225,14 @@ export default function Predicciones() {
                      tick={{ fontSize: 12, fontWeight: 600 }}/>
               <Tooltip formatter={v => [fmt(v), 'MAE']} />
               <Bar dataKey="MAE" radius={[0,4,4,0]}
-                   fill="#3b82f6"
                    label={{ position: 'right', fontSize: 11,
                             formatter: v => `$${(v/1000).toFixed(0)}k` }}
-              />
+              >
+                {datosMAE.map(entry => (
+                  <Cell key={entry.modelo}
+                        fill={coloresModelo[entry.modelo] ?? '#3b82f6'} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -267,6 +280,55 @@ export default function Predicciones() {
                 según la teoría clásica de gestión de inventarios.
             </p>
           </div>
+
+          {/* Análisis económico */}
+          {ops.balance_economico_neto_cop != null && (
+            <div className="mt-4 grid grid-cols-3 gap-4">
+              <div className="bg-white border border-slate-200 rounded-xl p-5">
+                <p className="text-xs font-medium text-slate-400 uppercase mb-1">
+                  Costo sobreinventario adicional
+                </p>
+                <p className="text-xl font-bold text-amber-600">
+                  {fmt(ops.costo_sobreinventario_cop)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Inversión extra en stock de seguridad
+                </p>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-5">
+                <p className="text-xs font-medium text-slate-400 uppercase mb-1">
+                  Ingreso recuperado
+                </p>
+                <p className="text-xl font-bold text-green-600">
+                  {fmt(ops.ingreso_recuperado_cop)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Ventas que habrían sido quiebres
+                </p>
+              </div>
+              <div className={`rounded-xl p-5 border ${
+                ops.balance_economico_neto_cop >= 0
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <p className="text-xs font-medium text-slate-400 uppercase mb-1">
+                  Balance neto
+                </p>
+                <p className={`text-xl font-bold ${
+                  ops.balance_economico_neto_cop >= 0
+                    ? 'text-green-700'
+                    : 'text-red-600'
+                }`}>
+                  {fmt(ops.balance_economico_neto_cop)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {ops.balance_economico_neto_cop >= 0
+                    ? '✓ La predicción es rentable'
+                    : '✗ Revisar parámetros'}
+                </p>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -298,9 +360,9 @@ export default function Predicciones() {
             <button
               onClick={generarForecast}
               disabled={loadingPred}
-              className="px-5 py-2 text-sm font-medium bg-purple-600 text-white
-                         rounded-lg hover:bg-purple-700 disabled:opacity-50
-                         transition-colors"
+              className="px-4 py-2 text-sm font-medium bg-slate-800 text-white
+                       rounded-lg hover:bg-slate-900 disabled:opacity-50
+                       transition-colors"
             >
               {loadingPred ? 'Calculando...' : '🔮 Generar forecast'}
             </button>
@@ -319,8 +381,14 @@ export default function Predicciones() {
           {forecast ? (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={[
-                ...forecast.historico.map(h => ({ ...h, tipo: 'histórico' })),
-                ...forecast.prediccion.map(p => ({ ...p, tipo: 'predicción' }))
+                ...forecast.historico.map(h => ({
+                  dia: h.dia, real: h.real,
+                  pred: null, lower: null, upper: null
+                })),
+                ...forecast.prediccion.map(p => ({
+                  dia: p.dia, real: null,
+                  pred: p.pred, lower: p.lower, upper: p.upper
+                }))
               ]}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="dia" tick={{ fontSize: 10 }}
@@ -328,21 +396,43 @@ export default function Predicciones() {
                 <YAxis tick={{ fontSize: 11 }}
                        tickFormatter={v => `$${v}k`}/>
                 <Tooltip formatter={(v, n) => [`$${v}k`, n]} />
-                <Legend />
+                <Legend content={() => (
+                  <div className="flex justify-center gap-6 mt-2 text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <span style={{ display:'inline-block', width:16, height:2,
+                                     background:'#64748b', verticalAlign:'middle' }}/>
+                      Real histórico
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span style={{ display:'inline-block', width:16, height:2,
+                                     background:'#8b5cf6', verticalAlign:'middle',
+                                     borderTop:'2px dashed #8b5cf6', background:'transparent' }}/>
+                      Predicción Prophet
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span style={{ display:'inline-block', width:16, height:2,
+                                     borderTop:'2px dashed #c4b5fd', verticalAlign:'middle' }}/>
+                      Intervalo confianza
+                    </span>
+                  </div>
+                )} />
                 <Line type="monotone" dataKey="real"
                       stroke="#64748b" strokeWidth={1.5}
-                      dot={false} name="Real histórico" />
+                      dot={false} legendType="none"
+                      connectNulls={false} />
                 <Line type="monotone" dataKey="pred"
                       stroke="#8b5cf6" strokeWidth={2.5}
-                      dot={false} name="Predicción Prophet"
-                      strokeDasharray="6 3"/>
+                      dot={false} strokeDasharray="6 3"
+                      legendType="none" connectNulls={false} />
                 <Line type="monotone" dataKey="upper"
                       stroke="#c4b5fd" strokeWidth={1}
                       strokeDasharray="3 3" dot={false}
-                      name="Intervalo confianza" />
+                      legendType="none" connectNulls={false} />
                 <Line type="monotone" dataKey="lower"
                       stroke="#c4b5fd" strokeWidth={1}
-                      strokeDasharray="3 3" dot={false} legendType="none"/>
+                      strokeDasharray="3 3" dot={false}
+                      legendType="none"
+                      connectNulls={false} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -356,6 +446,38 @@ export default function Predicciones() {
           )}
         </div>
       </section>
+
+      {/* ── Conclusión ── */}
+      {comparacion && ml.length > 0 && (
+        <section className="bg-slate-800 rounded-xl p-6 text-white">
+          <h3 className="text-base font-semibold mb-3 text-slate-300 uppercase
+                         tracking-wide text-xs">
+            Conclusión del análisis
+          </h3>
+          {(() => {
+            const mejor = [...ml].sort((a, b) => a.MAE - b.MAE)[0]
+            return (
+              <p className="text-slate-100 leading-relaxed">
+                El modelo <strong style={{ color: coloresModelo[mejor.modelo] }}>
+                {mejor.modelo}</strong> obtuvo el mejor desempeño con un MAE
+                de <strong>{fmt(mejor.MAE)}</strong> y MAPE
+                de <strong>{mejor.MAPE.toFixed(1)}%</strong>.
+                Aplicado a la gestión de inventario, la política proactiva
+                redujo los quiebres de stock
+                de <strong>{fmtNum(ops.total_quiebres_sin_prediccion)}</strong> a{' '}
+                <strong>{fmtNum(ops.total_quiebres_con_prediccion)}</strong> eventos
+                ({ops.reduccion_quiebres_pct}% de reducción), con un balance
+                económico neto de{' '}
+                <strong>
+                  {ops.balance_economico_neto_cop != null
+                    ? fmt(ops.balance_economico_neto_cop)
+                    : 'N/A'}
+                </strong> COP en favor del sistema predictivo.
+              </p>
+            )
+          })()}
+        </section>
+      )}
     </div>
   )
 }
