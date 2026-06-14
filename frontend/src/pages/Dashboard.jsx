@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [loading,     setLoading]     = useState(true)
   const [prediccion,  setPrediccion]  = useState([])
   const [loadingPred, setLoadingPred] = useState(false)
+  const [diasGrafica, setDiasGrafica] = useState(30)
 
   useEffect(() => {
     Promise.all([
@@ -36,6 +37,17 @@ export default function Dashboard() {
   }, [])
 
   // ── Funciones después de los hooks ───────────────────────────────────────
+  const cambiarDiasGrafica = dias => {
+    setDiasGrafica(dias)
+    getVentasPorDia(dias).then(r =>
+      setPorDia(r.data.map(x => ({
+        ...x,
+        dia:      x.dia.slice(5),
+        ingresos: x.ingresos / 1000
+      })))
+    )
+  }
+
   const cargarPrediccion = async () => {
     setLoadingPred(true)
     try {
@@ -73,18 +85,21 @@ export default function Dashboard() {
           titulo="Total Ventas"
           valor={resumen?.total_ventas?.toLocaleString('es-CO')}
           subtitulo="Últimos 365 días"
+          variacion={resumen?.variacion_ventas}
           color="blue" icono="🧾"
         />
         <KPICard
           titulo="Ingresos Totales"
           valor={fmt(resumen?.ingresos_total)}
           subtitulo="Últimos 365 días"
+          variacion={resumen?.variacion_ingresos}
           color="green" icono="💰"
         />
         <KPICard
           titulo="Ticket Promedio"
           valor={fmt(resumen?.ticket_promedio)}
           subtitulo="Por transacción"
+          variacion={resumen?.variacion_ticket}
           color="amber" icono="📈"
         />
         <KPICard
@@ -97,13 +112,28 @@ export default function Dashboard() {
 
       {/* Gráfica de ingresos */}
       <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 className="font-semibold text-slate-700 mb-4">
-          Ingresos últimos 30 días (miles COP)
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-slate-700">
+            Ingresos últimos {diasGrafica} días (miles COP)
+          </h3>
+          <div className="flex gap-1">
+            {[7, 30, 60, 90].map(d => (
+              <button key={d}
+                onClick={() => cambiarDiasGrafica(d)}
+                className={`px-3 py-1 text-xs font-medium rounded-lg
+                  transition-colors border
+                  ${diasGrafica === d
+                    ? 'bg-slate-800 text-white border-slate-800'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              >{d}d</button>
+            ))}
+          </div>
+        </div>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={porDia}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="dia" tick={{ fontSize: 11 }} interval={4} />
+            <XAxis dataKey="dia" tick={{ fontSize: 11 }}
+                   interval="preserveStartEnd" />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip
               formatter={(v) => [`$${v.toFixed(0)}k`, 'Ingresos']}
@@ -149,8 +179,8 @@ export default function Dashboard() {
           <button
             onClick={cargarPrediccion}
             disabled={loadingPred}
-            className="px-4 py-2 text-sm font-medium bg-purple-600 text-white
-                       rounded-lg hover:bg-purple-700 disabled:opacity-50
+            className="px-4 py-2 text-sm font-medium bg-slate-800 text-white
+                       rounded-lg hover:bg-slate-900 disabled:opacity-50
                        transition-colors"
           >
             {loadingPred ? 'Calculando...' : '🔮 Generar predicción'}

@@ -430,7 +430,8 @@ export default function Ventas() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-500">
-                      {v.detalles?.length ?? 0} producto(s)
+                      {v.detalles?.length ?? 0}{' '}
+                      {(v.detalles?.length ?? 0) === 1 ? 'producto' : 'productos'}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold
                                    text-slate-800">

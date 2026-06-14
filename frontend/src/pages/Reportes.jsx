@@ -85,7 +85,8 @@ export default function Reportes() {
   // Filtro de fechas personalizado
   const hoy      = new Date().toISOString().slice(0, 10)
   const hace30d  = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10) })()
-  const [filtroDesde, setFiltroDesde] = useState(hace30d)
+  const hace90d  = (() => { const d = new Date(); d.setDate(d.getDate() - 90); return d.toISOString().slice(0, 10) })()
+  const [filtroDesde, setFiltroDesde] = useState(hace90d)
   const [filtroHasta, setFiltroHasta] = useState(hoy)
 
   // Refs para capturar los gráficos como imagen en el PDF
@@ -503,7 +504,9 @@ export default function Reportes() {
                 type="number"
                 tick={{ fontSize: 11 }}
                 tickFormatter={vistaProductos === 'ingresos'
-                  ? v => `$${(v / 1000000).toFixed(1)}M`
+                  ? v => v >= 1000000
+                      ? `$${(v / 1000000).toFixed(1)}M`
+                      : `$${(v / 1000).toFixed(0)}k`
                   : v => fmtNum(v)}
                 domain={[0, 'dataMax']}
               />
@@ -519,7 +522,9 @@ export default function Reportes() {
                   position: 'right',
                   fontSize: 10,
                   formatter: v => vistaProductos === 'ingresos'
-                    ? `$${(v / 1000000).toFixed(1)}M`
+                    ? v >= 1000000
+                        ? `$${(v / 1000000).toFixed(1)}M`
+                        : `$${(v / 1000).toFixed(0)}k`
                     : fmtNum(v)
                 }}
               >

@@ -36,7 +36,7 @@ function ModalHistorial({ item, nombreProducto, onCerrar }) {
               Historial de movimientos
             </h3>
             <p className="text-slate-500 text-sm mt-0.5">
-              {nombreProducto} · Stock actual: {item.cantidad} {item.unidad_medida}
+              {nombreProducto} · Stock actual: {item.cantidad} {item.cantidad === 1 ? 'unidad' : 'unidades'}
             </p>
           </div>
           <button onClick={onCerrar}
@@ -135,7 +135,7 @@ function ModalAjuste({ item, nombreProducto, onGuardado, onCancelar }) {
             Ajuste de inventario
           </h3>
           <p className="text-slate-500 text-sm mt-1">
-            {nombreProducto} · Stock actual: {item.cantidad} {item.unidad_medida}
+            {nombreProducto} · Stock actual: {item.cantidad} {item.cantidad === 1 ? 'unidad' : 'unidades'}
           </p>
         </div>
         <div className="p-6 space-y-4">
@@ -284,7 +284,7 @@ export default function Inventario() {
           <span className="text-2xl">⚠️</span>
           <div>
             <p className="font-semibold text-red-700">
-              {alertas.length} producto(s) con stock bajo el mínimo
+              {alertas.length} {alertas.length === 1 ? 'producto' : 'productos'} con stock bajo el mínimo
             </p>
             <p className="text-sm text-red-500 mt-0.5">
               Revisa y repone el inventario para evitar quiebres de stock
@@ -379,7 +379,7 @@ export default function Inventario() {
                     </td>
                     <td className="px-4 py-3 text-center font-semibold
                                    text-slate-800">
-                      {i.cantidad} {i.unidad_medida}
+                      {i.cantidad} {i.cantidad === 1 ? 'unidad' : 'unidades'}
                     </td>
                     <td className="px-4 py-3 text-center text-slate-500">
                       {i.stock_minimo}
