@@ -111,6 +111,9 @@ def crear_ventas(productos, usuarios):
     vendedores   = [u for u in usuarios if u.rol == "vendedor"]
     total_ventas = 0
 
+    # Cargar inventarios en memoria para no consultar la BD en cada iteración
+    inventarios = {inv.producto_id: inv for inv in db.query(Inventario).all()}
+
     for dia in range(365):
         fecha = fecha_inicio + timedelta(days=dia)
 
@@ -175,6 +178,19 @@ def crear_ventas(productos, usuarios):
                 det.venta_id = venta.id
                 db.add(det)
 
+                # Registrar movimiento de inventario por cada producto vendido
+                inv = inventarios.get(det.producto_id)
+                if inv:
+                    inv.cantidad = max(0, inv.cantidad - det.cantidad)
+                    mov = MovimientoInventario(
+                        inventario_id = inv.id,
+                        tipo          = "salida",
+                        cantidad      = det.cantidad,
+                        motivo        = "venta",
+                        fecha         = fecha_venta
+                    )
+                    db.add(mov)
+
             total_ventas += 1
 
         # Commit cada semana para no sobrecargar memoria
@@ -198,9 +214,19 @@ total_ventas_bd  = db.query(Venta).count()
 total_ingresos   = db.query(Venta).with_entities(
     __import__('sqlalchemy').func.sum(Venta.total)).scalar()
 
+# Reabastecer inventario al nivel inicial visible
+# (las ventas de 365 días agotan el stock; esto lo deja en estado operacional)
+from app.models.inventario import Inventario
+inventarios_finales = db.query(Inventario).all()
+for inv in inventarios_finales:
+    stock_final = random.randint(30, 120)
+    inv.cantidad = stock_final
+db.commit()
+
 print("\nResumen final:")
 print(f"  Usuarios:  {db.query(Usuario).count()}")
 print(f"  Productos: {db.query(Producto).count()}")
 print(f"  Ventas:    {total_ventas_bd}")
 print(f"  Ingresos totales: ${total_ingresos:,.0f} COP")
+print(f"  Inventario reabastecido: {len(inventarios_finales)} productos con stock entre 30-120 uds")
 db.close()
