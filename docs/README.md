@@ -54,6 +54,21 @@ vs XGBoost sobre series de tiempo de ventas.
 - Node.js 18+
 - Git
 
+### Instalación de dependencias
+
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate       # Windows
+source venv/bin/activate    # Mac/Linux
+pip install -r requirements.txt
+```
+
+```bash
+cd frontend
+npm install
+```
+
 ### Backend
 
 ```bash
@@ -67,7 +82,6 @@ uvicorn app.main:app --reload --port 8000
 
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
