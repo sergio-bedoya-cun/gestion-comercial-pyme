@@ -33,16 +33,17 @@ vs XGBoost sobre series de tiempo de ventas.
 
 ## Resultados del módulo predictivo
 
-| Modelo | MAE | RMSE | MAPE |
-|--------|-----|------|------|
-| XGBoost | $84.266 | $107.552 | 46.7% |
-| SARIMA | $88.023 | $107.149 | 53.1% |
-| Prophet | $120.390 | $140.680 | 74.4% |
+| Modelo  | MAE        | RMSE        | MAPE filtrado | MAPE completo |
+|---------|-----------|-------------|---------------|---------------|
+| XGBoost | $82.455   | $106.835    | 46.1%         | 357.2%        |
+| SARIMA  | $88.023   | $107.149    | 53.1%         | 265.2%        |
+| Prophet | $120.390  | $140.680    | 74.4%         | 341.3%        |
 
 **Métricas operacionales simuladas (365 días):**
-- Reducción de quiebres de stock: **97%**
-- Reducción de unidades perdidas: **97.8%**
-- Aumento de stock de seguridad: **130.8%** *(trade-off esperado)*
+- Reducción de quiebres de stock: **96.1%**
+- Reducción de unidades perdidas: **96.5%**
+- Aumento de stock de seguridad: **133.6%** *(trade-off esperado)*
+- Balance económico neto: **$7.066.580 COP** a favor del sistema predictivo
 
 ---
 
@@ -75,17 +76,19 @@ Abre `http://localhost:5173` en el navegador.
 ### Generar datos sintéticos (primera vez)
 
 ```bash
-# Activar venv
-cd backend && venv\Scripts\activate
+# Activar venv primero
+cd backend
+venv\Scripts\activate       # Windows
+source venv/bin/activate    # Mac/Linux
+cd ..
 
-# Crear tablas
-python -c "import sys; sys.path.insert(0,'.'); from app.database import engine, Base; import app.models; Base.metadata.create_all(bind=engine)"
+# Generar 12 meses de datos e inventario inicial
+python ml/data/generar_datos.py
 
-# Generar datos de 12 meses
-cd .. && python ml/data/generar_datos.py
-
-# Entrenar modelos y calcular métricas
+# Opcional — análisis exploratorio (genera gráficas descriptivas)
 python ml/notebooks/01_exploracion.py
+
+# Entrenar modelos y calcular métricas (requiere venv activo)
 python ml/notebooks/02_modelos.py
 python ml/notebooks/03_metricas_operacionales.py
 ```
@@ -93,3 +96,4 @@ python ml/notebooks/03_metricas_operacionales.py
 ### API REST
 
 Documentación Swagger disponible en `http://localhost:8000/docs`
+El sistema expone 26 endpoints distribuidos en 5 módulos funcionales.
