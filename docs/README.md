@@ -95,5 +95,5 @@ python ml/notebooks/03_metricas_operacionales.py
 
 ### API REST
 
-Documentación Swagger disponible en `http://localhost:8000/docs`
+Documentación Swagger disponible en `http://localhost:8000/docs`  
 El sistema expone 26 endpoints distribuidos en 5 módulos funcionales.
